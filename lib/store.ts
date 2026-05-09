@@ -25,6 +25,7 @@ const SAMPLE_HABITS: Habit[] = [
     completedDates: [],
     streak: 0,
     longestStreak: 0,
+    scheduleDays: [0, 1, 2, 3, 4, 5, 6],
   },
   {
     id: '2',
@@ -39,6 +40,7 @@ const SAMPLE_HABITS: Habit[] = [
     completedDates: [],
     streak: 0,
     longestStreak: 0,
+    scheduleDays: [0, 1, 2, 3, 4, 5, 6],
   },
   {
     id: '3',
@@ -53,6 +55,7 @@ const SAMPLE_HABITS: Habit[] = [
     completedDates: [],
     streak: 0,
     longestStreak: 0,
+    scheduleDays: [0, 1, 2, 3, 4, 5, 6],
   },
 ];
 

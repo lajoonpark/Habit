@@ -68,17 +68,43 @@ export function isCompletedToday(habit: Habit): boolean {
   return habit.completedDates.includes(getTodayString());
 }
 
+// --- Schedule helpers ---
+
+export const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+export function getTodayDayIndex(): number {
+  return new Date().getDay();
+}
+
+/** Returns the schedule for a habit, defaulting to every day for backward compat. */
+export function getHabitScheduleDays(habit: Habit): number[] {
+  if (!habit.scheduleDays || habit.scheduleDays.length === 0) {
+    return [0, 1, 2, 3, 4, 5, 6];
+  }
+  return habit.scheduleDays;
+}
+
+export function isHabitScheduledToday(habit: Habit): boolean {
+  return getHabitScheduleDays(habit).includes(getTodayDayIndex());
+}
+
+export function getScheduledHabitsForToday(habits: Habit[]): Habit[] {
+  return habits.filter(h => h.active && isHabitScheduledToday(h));
+}
+
+// --- Streak (schedule-aware) ---
+
 export function calculateStreak(completedDates: string[]): number {
   if (completedDates.length === 0) return 0;
   const sorted = [...completedDates].sort().reverse();
   const today = getTodayString();
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  
+
   if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
-  
+
   let streak = 0;
   let checkDate = sorted[0] === today ? new Date() : new Date(Date.now() - 86400000);
-  
+
   for (const date of sorted) {
     const check = checkDate.toISOString().split('T')[0];
     if (date === check) {
@@ -88,6 +114,47 @@ export function calculateStreak(completedDates: string[]): number {
       break;
     }
   }
+  return streak;
+}
+
+/**
+ * Schedule-aware streak: only counts scheduled days.
+ * Skipped non-scheduled days don't break the streak.
+ */
+export function calculateScheduleAwareStreak(completedDates: string[], scheduleDays: number[]): number {
+  if (completedDates.length === 0) return 0;
+  const days = scheduleDays.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : scheduleDays;
+
+  const completedSet = new Set(completedDates);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayStr = today.toISOString().split('T')[0];
+  const yesterdayDate = new Date(today.getTime() - 86400000);
+  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+
+  // Must have completed today or yesterday to have an active streak
+  if (!completedSet.has(todayStr) && !completedSet.has(yesterdayStr)) return 0;
+
+  const startDate = completedSet.has(todayStr) ? today : yesterdayDate;
+
+  let streak = 0;
+  let current = new Date(startDate.getTime());
+
+  // Walk back up to 2 years of calendar days
+  for (let i = 0; i < 730; i++) {
+    const dayOfWeek = current.getDay();
+    if (days.includes(dayOfWeek)) {
+      const dateStr = current.toISOString().split('T')[0];
+      if (completedSet.has(dateStr)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    current = new Date(current.getTime() - 86400000);
+  }
+
   return streak;
 }
 
@@ -115,36 +182,37 @@ export function checkAchievements(
 ): string[] {
   const newly: string[] = [];
   const level = getLevelFromXP(profile.totalXP);
-  
+
   const completedToday = habits.filter(isCompletedToday);
-  const activeHabits = habits.filter(h => h.active);
-  
+  const scheduledToday = getScheduledHabitsForToday(habits);
+
   const checks: { id: string; condition: boolean }[] = [
     { id: 'first_habit_completed', condition: habits.some(h => h.completedDates.length > 0) },
     { id: 'streak_7', condition: habits.some(h => h.streak >= 7) },
     { id: 'streak_30', condition: habits.some(h => h.streak >= 30) },
     { id: 'level_10', condition: level >= 10 },
-    { id: 'perfect_day', condition: activeHabits.length > 0 && completedToday.length === activeHabits.length },
+    { id: 'perfect_day', condition: scheduledToday.length > 0 && completedToday.length === scheduledToday.length },
     { id: 'xp_1000', condition: profile.totalXP >= 1000 },
     { id: 'habits_5', condition: habits.length >= 5 },
     { id: 'hard_habit', condition: habits.some(h => (h.difficulty === 'Hard' || h.difficulty === 'Epic') && h.completedDates.length > 0) },
   ];
-  
+
   for (const check of checks) {
     if (check.condition && !profile.achievements.includes(check.id)) {
       newly.push(check.id);
     }
   }
-  
+
   return newly;
 }
 
 export function getDailyQuests(habits: Habit[], profile: UserProfile): DailyQuest[] {
   const today = getTodayString();
   const completed = profile.lastDailyQuestDate === today ? profile.dailyQuestsCompleted : [];
-  const completedToday = habits.filter(isCompletedToday);
-  const activeHabits = habits.filter(h => h.active);
-  
+  const scheduledToday = getScheduledHabitsForToday(habits);
+  const completedToday = scheduledToday.filter(isCompletedToday);
+  const hardCompletedToday = completedToday.filter(h => h.difficulty === 'Hard' || h.difficulty === 'Epic');
+
   return [
     {
       id: 'complete_3',
@@ -158,14 +226,15 @@ export function getDailyQuests(habits: Habit[], profile: UserProfile): DailyQues
       title: 'Hard Hitter',
       description: 'Complete 1 Hard or Epic habit',
       xpReward: 75,
-      completed: completed.includes('hard_habit') || completedToday.some(h => h.difficulty === 'Hard' || h.difficulty === 'Epic'),
+      completed: completed.includes('hard_habit') || hardCompletedToday.length >= 1,
     },
     {
       id: 'all_habits',
       title: 'Perfectionist',
       description: 'Complete all active habits today',
       xpReward: 100,
-      completed: completed.includes('all_habits') || (activeHabits.length > 0 && completedToday.length >= activeHabits.length),
+      completed: completed.includes('all_habits') || (scheduledToday.length > 0 && completedToday.length >= scheduledToday.length),
     },
   ];
 }
+

@@ -4,10 +4,11 @@ A gamified habit tracker web app built with Next.js, TypeScript, and Tailwind CS
 
 ## Features
 - Daily habit checklist with XP rewards
+- **Custom habit schedules** — set each habit to run on specific days of the week (e.g. Mon/Wed/Fri)
 - Level up system with XP progression
 - 7 ranks: Bronze → Silver → Gold → Platinum → Diamond → Master → Legend
-- Streak tracking with freeze protection
-- Daily quests for bonus XP
+- Streak tracking with freeze protection (schedule-aware: skipped non-scheduled days don't break streaks)
+- Daily quests for bonus XP (based only on habits scheduled for today)
 - Achievements system
 - Fully local (no backend required)
 
