@@ -4,7 +4,9 @@ import { useHabits, useProfile } from '@/lib/store';
 import {
   getLevelFromXP,
   isCompletedToday,
-  calculateStreak,
+  calculateScheduleAwareStreak,
+  getHabitScheduleDays,
+  getScheduledHabitsForToday,
   getTodayString,
   checkAchievements,
   getDailyQuests,
@@ -24,8 +26,8 @@ export default function Dashboard() {
   const [levelUpLevel, setLevelUpLevel] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
-  const activeHabits = habits.filter(h => h.active);
-  const completedToday = activeHabits.filter(isCompletedToday);
+  const scheduledToday = getScheduledHabitsForToday(habits);
+  const completedToday = scheduledToday.filter(isCompletedToday);
   const quests = getDailyQuests(habits, profile);
   const today = getTodayString();
 
@@ -40,7 +42,7 @@ export default function Dashboard() {
     const prevLevel = getLevelFromXP(profile.totalXP);
 
     const newCompletedDates = [...habit.completedDates, today];
-    const newStreak = calculateStreak(newCompletedDates);
+    const newStreak = calculateScheduleAwareStreak(newCompletedDates, getHabitScheduleDays(habit));
     const newLongestStreak = Math.max(habit.longestStreak, newStreak);
 
     const updatedHabits = habits.map(h =>
@@ -50,8 +52,8 @@ export default function Dashboard() {
     );
 
     // Check daily quests
-    const completedNow = updatedHabits.filter(h => h.active && isCompletedToday(h));
-    const activeHabitsUpdated = updatedHabits.filter(h => h.active);
+    const scheduledHabitsAfterUpdate = getScheduledHabitsForToday(updatedHabits);
+    const completedNow = scheduledHabitsAfterUpdate.filter(h => isCompletedToday(h));
     
     let questXP = 0;
     const newQuestsCompleted = [...(profile.lastDailyQuestDate === today ? profile.dailyQuestsCompleted : [])];
@@ -60,7 +62,7 @@ export default function Dashboard() {
     const newQuestStates = [
       { id: 'complete_3', cond: completedNow.length >= 3 },
       { id: 'hard_habit', cond: completedNow.some(h => h.difficulty === 'Hard' || h.difficulty === 'Epic') },
-      { id: 'all_habits', cond: activeHabitsUpdated.length > 0 && completedNow.length >= activeHabitsUpdated.length },
+      { id: 'all_habits', cond: scheduledHabitsAfterUpdate.length > 0 && completedNow.length >= scheduledHabitsAfterUpdate.length },
     ];
     for (const q of newQuestStates) {
       if (q.cond && !newQuestsCompleted.includes(q.id)) {
@@ -110,7 +112,7 @@ export default function Dashboard() {
 
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const rank = getRankFromXP(profile.totalXP);
-  const completionPct = activeHabits.length > 0 ? Math.round((completedToday.length / activeHabits.length) * 100) : 0;
+  const completionPct = scheduledToday.length > 0 ? Math.round((completedToday.length / scheduledToday.length) * 100) : 0;
 
   return (
     <div className="space-y-8">
@@ -142,11 +144,11 @@ export default function Dashboard() {
       </div>
 
       {/* Progress for today */}
-      {activeHabits.length > 0 && (
+      {scheduledToday.length > 0 && (
         <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-white font-semibold">Today&apos;s Progress</h2>
-            <span className="text-sm text-gray-400">{completedToday.length}/{activeHabits.length} done</span>
+            <span className="text-sm text-gray-400">{completedToday.length}/{scheduledToday.length} done</span>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-3">
             <div
@@ -182,17 +184,17 @@ export default function Dashboard() {
             </span>
           )}
         </h2>
-        {activeHabits.length === 0 ? (
+        {scheduledToday.length === 0 ? (
           <div className="bg-gray-800 rounded-2xl p-8 text-center border border-gray-700">
-            <p className="text-4xl mb-3">🌱</p>
-            <p className="text-gray-400">No active habits yet.</p>
+            <p className="text-4xl mb-3">🌴</p>
+            <p className="text-gray-400">No habits scheduled for today. Enjoy the break!</p>
             <a href="/habits" className="mt-3 inline-block text-purple-400 hover:text-purple-300 text-sm font-medium">
-              Add your first habit →
+              Manage habits →
             </a>
           </div>
         ) : (
           <div className="space-y-3">
-            {activeHabits.map(habit => (
+            {scheduledToday.map(habit => (
               <HabitCard
                 key={habit.id}
                 habit={habit}

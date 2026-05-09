@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useHabits } from '@/lib/store';
 import { Habit, Difficulty } from '@/lib/types';
-import { DIFFICULTY_XP } from '@/lib/gameLogic';
+import { DIFFICULTY_XP, WEEK_DAYS, getHabitScheduleDays } from '@/lib/gameLogic';
 import HabitCard from '@/components/HabitCard';
 
 const ICONS = ['💪', '📚', '🧘', '🏃', '💧', '🥗', '😴', '✍️', '🎯', '🎸', '🌿', '💊', '🧹', '👨‍💻', '🙏', '🏊'];
@@ -14,6 +14,7 @@ const DEFAULT_FORM = {
   difficulty: 'Normal' as Difficulty,
   color: '#6C5CE7',
   icon: '🎯',
+  scheduleDays: [0, 1, 2, 3, 4, 5, 6] as number[],
 };
 
 export default function HabitsPage() {
@@ -37,6 +38,7 @@ export default function HabitsPage() {
       difficulty: habit.difficulty,
       color: habit.color,
       icon: habit.icon,
+      scheduleDays: getHabitScheduleDays(habit),
     });
     setShowForm(true);
   };
@@ -44,6 +46,7 @@ export default function HabitsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
+    if (form.scheduleDays.length === 0) return;
 
     if (editingHabit) {
       setHabits(habits.map(h =>
@@ -173,6 +176,36 @@ export default function HabitsPage() {
                     />
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm block mb-1">Schedule</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEK_DAYS.map((label, idx) => {
+                    const selected = form.scheduleDays.includes(idx);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          const next = selected
+                            ? form.scheduleDays.filter(d => d !== idx)
+                            : [...form.scheduleDays, idx].sort((a, b) => a - b);
+                          setForm({ ...form, scheduleDays: next });
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                          selected
+                            ? 'bg-purple-500/30 border-purple-500 text-purple-300'
+                            : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {form.scheduleDays.length === 0 && (
+                  <p className="text-red-400 text-xs mt-1">Select at least one day.</p>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button

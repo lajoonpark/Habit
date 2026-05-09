@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Habit } from '@/lib/types';
-import { isCompletedToday } from '@/lib/gameLogic';
+import { isCompletedToday, WEEK_DAYS, getHabitScheduleDays } from '@/lib/gameLogic';
 
 interface HabitCardProps {
   habit: Habit;
@@ -22,6 +22,11 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 export default function HabitCard({ habit, onComplete, onEdit, onDelete, onToggleActive, showActions = false }: HabitCardProps) {
   const [animating, setAnimating] = useState(false);
   const completed = isCompletedToday(habit);
+  const scheduleDays = getHabitScheduleDays(habit);
+  const scheduleLabel =
+    scheduleDays.length === 7
+      ? 'Every day'
+      : scheduleDays.map(d => WEEK_DAYS[d]).join(' ');
 
   const handleComplete = () => {
     if (completed) return;
@@ -55,6 +60,7 @@ export default function HabitCard({ habit, onComplete, onEdit, onDelete, onToggl
                   🔥 {habit.streak}d
                 </span>
               )}
+              <span className="text-gray-500 text-xs">📅 {scheduleLabel}</span>
             </div>
           </div>
         </div>

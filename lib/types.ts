@@ -13,6 +13,7 @@ export interface Habit {
   completedDates: string[]; // ISO date strings "YYYY-MM-DD"
   streak: number;
   longestStreak: number;
+  scheduleDays: number[]; // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
 }
 
 export interface UserProfile {
